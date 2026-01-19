@@ -1,0 +1,149 @@
+# #################################
+# The hyperparameters to train L2I on ChickenAudio
+#
+# Author:
+#  * Adapted from ESC50 recipe by Cem Subakan and Francesco Paissan
+# #################################
+
+# Seed needs to be set at top of yaml, before objects with parameters are made
+seed: 1234
+__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
+
+# Set up folders for reading from and writing to
+data_folder: !PLACEHOLDER  # e.g., /path/to/Chicken_Audio_Dataset_Denoised
+audio_data_folder: !ref <data_folder>
+
+single_sample: null
+
+int_method: "l2i"
+overlap_type: "mixtures"
+
+experiment_name: L2I_cnn14
+output_folder: !ref ./results/<experiment_name>/<seed>
+save_folder: !ref <output_folder>/save
+train_log: !ref <output_folder>/train_log.txt
+
+test_only: False
+save_interpretations: True
+interpret_period: 10
+
+# Tensorboard logs
+use_tensorboard: False
+tensorboard_logs_folder: !ref <output_folder>/tb_logs/
+
+# Path where data manifest files will be stored
+train_annotation: !ref <data_folder>/manifest/train.json
+valid_annotation: !ref <data_folder>/manifest/valid.json
+test_annotation: !ref <data_folder>/manifest/test.json
+
+skip_manifest_creation: False
+
+ckpt_interval_minutes: 15 # save checkpoint every N min
+
+# Training parameters
+number_of_epochs: 200
+batch_size: 16
+lr: 0.0002
+sample_rate: 16000
+signal_length_s: 5
+
+# Feature parameters
+n_mels: 80
+
+# Number of classes (Healthy, Unhealthy)
+out_n_neurons: 2
+
+shuffle: True
+dataloader_options:
+    batch_size: !ref <batch_size>
+    shuffle: !ref <shuffle>
+    num_workers: 0
+
+epoch_counter: !new:speechbrain.utils.epoch_loop.EpochCounter
+    limit: !ref <number_of_epochs>
+
+opt_class: !name:torch.optim.Adam
+    lr: !ref <lr>
+    weight_decay: 0.000002
+
+lr_annealing: !new:speechbrain.nnet.schedulers.ReduceLROnPlateau
+    factor: 0.5
+    patience: 3
+    dont_halve_until_epoch: 100
+
+# Logging + checkpoints
+train_logger: !new:speechbrain.utils.train_logger.FileTrainLogger
+    save_file: !ref <train_log>
+
+checkpointer: !new:speechbrain.utils.checkpoints.Checkpointer
+    checkpoints_dir: !ref <save_folder>
+    recoverables:
+        psi: !ref <psi_model>
+        theta: !ref <theta_model>
+        counter: !ref <epoch_counter>
+
+
+return_reps: True
+embedding_model: !new:speechbrain.lobes.models.Cnn14.Cnn14
+    mel_bins: !ref <n_mels>
+    emb_dim: 2048
+    return_reps: !ref <return_reps>
+
+classifier: !new:torch.nn.Linear
+    in_features: 2048
+    out_features: !ref <out_n_neurons>
+
+use_pretrained: False
+
+# pre-processing
+n_fft: 1024
+spec_mag_power: 0.5
+hop_length: 11.6099
+win_length: 23.2199
+use_melspectra_log1p: True
+
+compute_stft: !new:speechbrain.processing.features.STFT
+    n_fft: !ref <n_fft>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+    sample_rate: !ref <sample_rate>
+
+compute_fbank: !new:speechbrain.processing.features.Filterbank
+    n_mels: !ref <n_mels>
+    n_fft: !ref <n_fft>
+    sample_rate: !ref <sample_rate>
+    log_mel: False
+
+compute_istft: !new:speechbrain.processing.features.ISTFT
+    sample_rate: !ref <sample_rate>
+    hop_length: !ref <hop_length>
+    win_length: !ref <win_length>
+
+
+# Interpretation hyperparams
+K: 100
+N_FREQ: 513
+relevance_th: 0.1
+alpha: 1.0
+beta: 0.01
+classifier_temp: 2.0
+
+# NMF Decoder
+nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
+    n_comp: !ref <K>
+    n_freq: !ref <N_FREQ>
+
+psi_model: !new:speechbrain.lobes.models.L2I.Psi
+    dim: 2048
+    K: !ref <K>
+
+theta_model: !new:speechbrain.lobes.models.L2I.Theta
+    n_classes: !ref <out_n_neurons>
+    K: !ref <K>
+
+modules:
+    compute_stft: !ref <compute_stft>
+    compute_fbank: !ref <compute_fbank>
+    compute_istft: !ref <compute_istft>
+    psi: !ref <psi_model>
+    theta: !ref <theta_model>

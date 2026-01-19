@@ -1,0 +1,218 @@
+{
+  "115__clean__hpss": {
+    "wav": "Unhealthy/115__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 0.5719274376417234
+  },
+  "97__clean__hpss": {
+    "wav": "Unhealthy/97__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 3.333968253968254
+  },
+  "75__clean__hpss": {
+    "wav": "Healthy/75__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 31.947392290249432
+  },
+  "40__clean__hpss": {
+    "wav": "Unhealthy/40__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 78.30539682539683
+  },
+  "83__clean__hpss": {
+    "wav": "Unhealthy/83__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 34.04897959183673
+  },
+  "134__clean__hpss": {
+    "wav": "Healthy/134__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 39.824444444444445
+  },
+  "55__clean__hpss": {
+    "wav": "Healthy/55__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 88.76244897959184
+  },
+  "58__clean__hpss": {
+    "wav": "Healthy/58__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 37.932698412698414
+  },
+  "99__clean__hpss": {
+    "wav": "Healthy/99__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 27.949433106575963
+  },
+  "9__clean__hpss": {
+    "wav": "Unhealthy/9__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 16.574421768707484
+  },
+  "117__clean__hpss": {
+    "wav": "Unhealthy/117__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 0.8379591836734694
+  },
+  "101__clean__hpss": {
+    "wav": "Healthy/101__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 10.575464852607709
+  },
+  "92__clean__hpss": {
+    "wav": "Unhealthy/92__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 3.6886621315192745
+  },
+  "90__clean__hpss": {
+    "wav": "Unhealthy/90__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 2.908390022675737
+  },
+  "110__clean__hpss": {
+    "wav": "Unhealthy/110__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 0.7625850340136054
+  },
+  "42__clean__hpss": {
+    "wav": "Healthy/42__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 15.947845804988662
+  },
+  "56__clean__hpss": {
+    "wav": "Healthy/56__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 49.3124716553288
+  },
+  "120__clean__hpss": {
+    "wav": "Healthy/120__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 20.412879818594103
+  },
+  "48__clean__hpss": {
+    "wav": "Healthy/48__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 21.263809523809524
+  },
+  "112__clean__hpss": {
+    "wav": "Unhealthy/112__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 0.5143310657596372
+  },
+  "95__clean__hpss": {
+    "wav": "Healthy/95__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 38.524897959183676
+  },
+  "111__clean__hpss": {
+    "wav": "Unhealthy/111__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 1.2813151927437643
+  },
+  "60__clean__hpss": {
+    "wav": "Unhealthy/60__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 51.20154195011338
+  },
+  "65__clean__hpss": {
+    "wav": "Healthy/65__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 34.139410430839
+  },
+  "13__clean__hpss": {
+    "wav": "Healthy/13__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 11.874603174603175
+  },
+  "136__clean__hpss": {
+    "wav": "Healthy/136__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 64.85691609977324
+  },
+  "103__clean__hpss": {
+    "wav": "Healthy/103__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 6.798503401360544
+  },
+  "37__clean__hpss": {
+    "wav": "Unhealthy/37__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 60.234920634920634
+  },
+  "12__clean__hpss": {
+    "wav": "Healthy/12__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 18.268571428571427
+  },
+  "114__clean__hpss": {
+    "wav": "Unhealthy/114__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 0.6029931972789115
+  },
+  "28__clean__hpss": {
+    "wav": "Unhealthy/28__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 85.83478458049886
+  },
+  "4__clean__hpss": {
+    "wav": "Healthy/4__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 20.75387755102041
+  },
+  "121__clean__hpss": {
+    "wav": "Healthy/121__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 64.26267573696146
+  },
+  "7__clean__hpss": {
+    "wav": "Healthy/7__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 7.218730158730159
+  },
+  "82__clean__hpss": {
+    "wav": "Healthy/82__clean__hpss.wav",
+    "classID": 0,
+    "class_string": "Healthy",
+    "duration": 12.931065759637189
+  },
+  "84__clean__hpss": {
+    "wav": "Unhealthy/84__clean__hpss.wav",
+    "classID": 1,
+    "class_string": "Unhealthy",
+    "duration": 28.374149659863946
+  }
+}

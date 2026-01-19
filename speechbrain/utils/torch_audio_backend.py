@@ -53,13 +53,18 @@ def check_torchaudio_backend():
         logger.warning(
             "Failed to detect torchaudio major version; unsure how to check your setup. We recommend that you keep torchaudio up-to-date."
         )
+    elif torchaudio_major >= 2 and torchaudio_minor >= 2:
+        # torchaudio 2.2+ removed list_audio_backends() as it now uses FFmpeg by default
+        # No backend check needed for these versions
+        pass
     elif torchaudio_major >= 2 and torchaudio_minor >= 1:
-        available_backends = torchaudio.list_audio_backends()
+        if hasattr(torchaudio, "list_audio_backends"):
+            available_backends = torchaudio.list_audio_backends()
 
-        if len(available_backends) == 0:
-            logger.warning(
-                "SpeechBrain could not find any working torchaudio backend. Audio files may fail to load. Follow this link for instructions and troubleshooting: https://speechbrain.readthedocs.io/en/latest/audioloading.html"
-            )
+            if len(available_backends) == 0:
+                logger.warning(
+                    "SpeechBrain could not find any working torchaudio backend. Audio files may fail to load. Follow this link for instructions and troubleshooting: https://speechbrain.readthedocs.io/en/latest/audioloading.html"
+                )
     else:
         logger.warning(
             "This version of torchaudio is old. SpeechBrain no longer tries using the torchaudio global backend mechanism in recipes, so if you encounter issues, update torchaudio to >=2.1.0."
@@ -88,8 +93,13 @@ def validate_backend(backend):
     """
     allowed_backends = [None, "ffmpeg", "sox", "soundfile"]
     if backend not in allowed_backends:
+        available = (
+            torchaudio.list_audio_backends()
+            if hasattr(torchaudio, "list_audio_backends")
+            else ["ffmpeg (default in torchaudio 2.2+)"]
+        )
         raise ValueError(
             f"backend must be one of {allowed_backends}",
             "Available backends on your system: ",
-            torchaudio.list_audio_backends(),
+            available,
         )

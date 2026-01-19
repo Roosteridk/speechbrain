@@ -150,15 +150,29 @@ class InterpreterBrain(sb.core.Brain):
         )
         plt.close()
 
+        # Ensure audio is mono (1, N) - take first sample from batch
+        xhat_audio = xhat_tm[0].data.cpu()
+        if xhat_audio.ndim == 1:
+            xhat_audio = xhat_audio.unsqueeze(0)
+        elif xhat_audio.ndim > 1:
+            xhat_audio = xhat_audio.reshape(1, -1)
+
         torchaudio.save(
             os.path.join(out_folder, "interpretation.wav"),
-            xhat_tm.data.cpu(),
+            xhat_audio,
             self.hparams.sample_rate,
         )
 
+        # Ensure original audio is mono (1, N) - take first sample from batch
+        orig_audio = wavs[0].data.cpu()
+        if orig_audio.ndim == 1:
+            orig_audio = orig_audio.unsqueeze(0)
+        elif orig_audio.ndim > 1:
+            orig_audio = orig_audio.reshape(1, -1)
+
         torchaudio.save(
             os.path.join(out_folder, "original.wav"),
-            wavs.data.cpu(),
+            orig_audio,
             self.hparams.sample_rate,
         )
 

@@ -234,14 +234,10 @@ def create_json(metadata, audio_data_folder, folds_list, json_file):
                 sample_metadata["filename"],
             )
             try:
-                signal = read_audio(wav_file)
-                file_info = torchaudio.info(wav_file)
-
-                # If we're using sox/soundfile backend, file_info will have the old type
-                if isinstance(file_info, torchaudio.AudioMetaData):
-                    duration = signal.shape[0] / file_info.sample_rate
-                else:
-                    duration = signal.shape[0] / file_info[0].rate
+                # Load audio and get sample rate directly
+                signal_tensor, sample_rate = torchaudio.load(wav_file)
+                signal = signal_tensor.squeeze()
+                duration = signal.shape[0] / sample_rate
 
                 # Create entry for this sample ONLY if we have successfully read-in the file using SpeechBrain/torchaudio
                 json_dict[ID] = {
