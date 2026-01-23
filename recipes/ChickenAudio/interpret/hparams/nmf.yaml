@@ -14,7 +14,7 @@ data_folder: !PLACEHOLDER  # e.g., /path/to/Chicken_Audio_Dataset_Denoised
 audio_data_folder: !ref <data_folder>
 
 experiment_name: train_nmf
-output_folder: !ref ./results/<experiment_name>/<seed>
+output_folder: !ref results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 save_period: 10
