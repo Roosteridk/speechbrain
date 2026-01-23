@@ -29,7 +29,7 @@ single_sample: null
 pretrained_interpreter: null
 
 experiment_name: L2I
-output_folder: !ref results/<experiment_name>/<seed>
+output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 

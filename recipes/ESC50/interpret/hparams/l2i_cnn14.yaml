@@ -34,7 +34,7 @@ wham_folder: null
 wham_audio_folder: !ref <wham_folder>/tr
 
 experiment_name: L2I_cnn14
-output_folder: !ref results/<experiment_name>/<seed>
+output_folder: !ref ./results/<experiment_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
