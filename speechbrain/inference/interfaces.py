@@ -208,9 +208,7 @@ class Pretrained(torch.nn.Module):
     HPARAMS_NEEDED = []
     MODULES_NEEDED = []
 
-    def __init__(
-        self, modules=None, hparams=None, run_opts=None, freeze_params=True
-    ):
+    def __init__(self, modules=None, hparams=None, run_opts=None, freeze_params=True):
         super().__init__()
         # Arguments passed via the run opts dictionary. Set a limited
         # number of these, since some don't apply to inference.
@@ -260,9 +258,7 @@ class Pretrained(torch.nn.Module):
         self._prepare_modules(freeze_params)
 
         # Audio normalization
-        self.audio_normalizer = hparams.get(
-            "audio_normalizer", AudioNormalizer()
-        )
+        self.audio_normalizer = hparams.get("audio_normalizer", AudioNormalizer())
 
     def _prepare_modules(self, freeze_params):
         """Prepare modules for computation, e.g. jit.
@@ -341,9 +337,7 @@ class Pretrained(torch.nn.Module):
         # find missing keys
         for name in compile_module_keys | jit_module_keys:
             if name not in self.mods:
-                raise ValueError(
-                    f"module {name} is not defined in your hparams file."
-                )
+                raise ValueError(f"module {name} is not defined in your hparams file.")
 
         # try 'torch.compile', remove successful compiles from JIT list
         for name in compile_module_keys:

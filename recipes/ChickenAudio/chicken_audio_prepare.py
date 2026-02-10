@@ -25,6 +25,56 @@ from speechbrain.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+def detect_audio_suffix(data_folder):
+    """
+    Automatically detect the audio suffix/pattern from a data folder.
+    
+    Scans audio files in Healthy/Unhealthy subfolders and determines
+    the most common suffix pattern.
+    
+    Arguments
+    ---------
+    data_folder : str
+        Path to the dataset folder containing Healthy/Unhealthy subdirs.
+    
+    Returns
+    -------
+    str
+        The detected audio suffix (e.g., ".wav" or "__clean__hpss.wav")
+    """
+    from collections import Counter
+    
+    classes = ["Healthy", "Unhealthy"]
+    all_files = []
+    
+    for class_name in classes:
+        class_folder = os.path.join(data_folder, class_name)
+        if os.path.exists(class_folder):
+            for filename in os.listdir(class_folder):
+                if filename.endswith(".wav"):
+                    all_files.append(filename)
+    
+    if not all_files:
+        logger.warning("No .wav files found for suffix detection, defaulting to '.wav'")
+        return ".wav"
+    
+    # Check for common patterns
+    suffix_patterns = []
+    for f in all_files:
+        if "__clean__hpss.wav" in f:
+            suffix_patterns.append("__clean__hpss.wav")
+        elif "_22k.wav" in f:
+            suffix_patterns.append("_22k.wav")
+        else:
+            suffix_patterns.append(".wav")
+    
+    # Return most common pattern
+    counter = Counter(suffix_patterns)
+    detected_suffix = counter.most_common(1)[0][0]
+    logger.info(f"Auto-detected audio_suffix: '{detected_suffix}'")
+    return detected_suffix
+
+
 def prepare_chicken_audio(
     data_folder,
     save_json_train,
@@ -35,7 +85,7 @@ def prepare_chicken_audio(
     test_ratio=0.15,
     seed=1234,
     skip_manifest_creation=False,
-    audio_suffix="__clean__hpss.wav",
+    audio_suffix=None,  # Auto-detect if None
 ):
     """
     Prepares the json files for the ChickenAudio dataset.
@@ -71,9 +121,14 @@ def prepare_chicken_audio(
     if skip_manifest_creation:
         return
 
+    # Auto-detect audio suffix if not specified
+    if audio_suffix is None:
+        audio_suffix = detect_audio_suffix(data_folder)
+
     # Validate ratios
-    assert abs(train_ratio + valid_ratio + test_ratio - 1.0) < 1e-6, \
+    assert abs(train_ratio + valid_ratio + test_ratio - 1.0) < 1e-6, (
         "Train, valid, and test ratios must sum to 1.0"
+    )
 
     # Set random seed for reproducibility
     random.seed(seed)
@@ -90,28 +145,54 @@ def prepare_chicken_audio(
             continue
 
         for filename in os.listdir(class_folder):
-            if filename.endswith(audio_suffix):
-                all_samples.append({
-                    "filename": filename,
-                    "class_name": class_name,
-                    "class_id": class_to_id[class_name],
-                    "class_folder": class_folder,
-                })
+            # Match all wav files, or filter by specific suffix if not just ".wav"
+            if audio_suffix == ".wav":
+                should_include = filename.endswith(".wav")
+            else:
+                should_include = filename.endswith(audio_suffix)
+            
+            if should_include:
+                all_samples.append(
+                    {
+                        "filename": filename,
+                        "class_name": class_name,
+                        "class_id": class_to_id[class_name],
+                        "class_folder": class_folder,
+                    }
+                )
 
     logger.info(f"Found {len(all_samples)} audio files")
 
-    # Shuffle and split
-    random.shuffle(all_samples)
+    # Stratified split: ensure both classes are in all splits
+    samples_by_class = {}
+    for sample in all_samples:
+        class_name = sample["class_name"]
+        if class_name not in samples_by_class:
+            samples_by_class[class_name] = []
+        samples_by_class[class_name].append(sample)
 
-    n_total = len(all_samples)
-    n_train = int(n_total * train_ratio)
-    n_valid = int(n_total * valid_ratio)
+    train_samples = []
+    valid_samples = []
+    test_samples = []
 
-    train_samples = all_samples[:n_train]
-    valid_samples = all_samples[n_train:n_train + n_valid]
-    test_samples = all_samples[n_train + n_valid:]
+    for class_name, class_samples in samples_by_class.items():
+        random.shuffle(class_samples)
+        n_class = len(class_samples)
+        n_train = int(n_class * train_ratio)
+        n_valid = int(n_class * valid_ratio)
 
-    logger.info(f"Split: train={len(train_samples)}, valid={len(valid_samples)}, test={len(test_samples)}")
+        train_samples.extend(class_samples[:n_train])
+        valid_samples.extend(class_samples[n_train : n_train + n_valid])
+        test_samples.extend(class_samples[n_train + n_valid :])
+
+    # Shuffle each split to mix classes
+    random.shuffle(train_samples)
+    random.shuffle(valid_samples)
+    random.shuffle(test_samples)
+
+    logger.info(
+        f"Split: train={len(train_samples)}, valid={len(valid_samples)}, test={len(test_samples)}"
+    )
 
     # Create JSON manifests
     create_json(train_samples, data_folder, save_json_train)
@@ -172,9 +253,7 @@ def dataio_prep(hparams):
     data_audio_folder = hparams["audio_data_folder"]
     config_sample_rate = hparams["sample_rate"]
     label_encoder = sb.dataio.encoder.CategoricalEncoder()
-    hparams["resampler"] = torchaudio.transforms.Resample(
-        new_freq=config_sample_rate
-    )
+    hparams["resampler"] = torchaudio.transforms.Resample(new_freq=config_sample_rate)
 
     # Define audio pipeline
     @sb.utils.data_pipeline.takes("wav")

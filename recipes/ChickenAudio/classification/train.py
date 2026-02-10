@@ -18,7 +18,7 @@ import torch.nn.functional as F
 import torchaudio
 import torchvision
 from hyperpyyaml import load_hyperpyyaml
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_auc_score
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -44,10 +44,7 @@ class ChickenAudioBrain(sb.core.Brain):
         net_input = sb.processing.features.spectral_magnitude(
             X_stft, power=self.hparams.spec_mag_power
         )
-        if (
-            hasattr(self.hparams, "use_melspectra")
-            and self.hparams.use_melspectra
-        ):
+        if hasattr(self.hparams, "use_melspectra") and self.hparams.use_melspectra:
             net_input = self.modules.compute_fbank(net_input)
 
         if (not self.hparams.use_melspectra) or self.hparams.use_log1p_mel:
@@ -64,9 +61,7 @@ class ChickenAudioBrain(sb.core.Brain):
             # Expand to have 3 channels
             net_input = net_input[:, None, ...].expand(-1, 3, -1, -1)
             if config.model_type == "focalnet":
-                embeddings = self.modules.embedding_model(
-                    net_input
-                ).feature_maps[-1]
+                embeddings = self.modules.embedding_model(net_input).feature_maps[-1]
                 embeddings = embeddings.mean(dim=(-1, -2))
             elif config.model_type == "vit":
                 embeddings = self.modules.embedding_model(
@@ -102,21 +97,15 @@ class ChickenAudioBrain(sb.core.Brain):
         N_augments = int(predictions.shape[0] / classid.shape[0])
         classid = torch.cat(N_augments * [classid], dim=0)
 
-        target = F.one_hot(
-            classid.squeeze(), num_classes=self.hparams.out_n_neurons
-        )
-        loss = (
-            -(F.log_softmax(predictions.squeeze(1), 1) * target).sum(1).mean()
-        )
+        target = F.one_hot(classid.squeeze(), num_classes=self.hparams.out_n_neurons)
+        loss = -(F.log_softmax(predictions.squeeze(1), 1) * target).sum(1).mean()
 
         if stage != sb.Stage.TEST:
             if hasattr(self.hparams.lr_annealing, "on_batch_end"):
                 self.hparams.lr_annealing.on_batch_end(self.optimizer)
 
         # Append this batch of losses to the loss metric
-        self.loss_metric.append(
-            uttid, predictions, classid, lens, reduction="batch"
-        )
+        self.loss_metric.append(uttid, predictions, classid, lens, reduction="batch")
 
         # Confusion matrices
         if stage != sb.Stage.TRAIN:
@@ -139,12 +128,16 @@ class ChickenAudioBrain(sb.core.Brain):
             self.test_confusion_matrix += confusion_matix
 
         # Compute accuracy using MetricStats
-        self.acc_metric.append(
-            uttid, predict=predictions, target=classid, lengths=lens
-        )
+        self.acc_metric.append(uttid, predict=predictions, target=classid, lengths=lens)
 
         if stage != sb.Stage.TRAIN:
             self.error_metrics.append(uttid, predictions, classid, lens)
+        
+        # Store predictions and labels for AUROC (test stage only)
+        if stage == sb.Stage.TEST:
+            probs = F.softmax(predictions.squeeze(1), dim=1)
+            self.test_preds.append(probs.cpu().detach())
+            self.test_labels.append(classid.cpu().detach())
 
         return loss
 
@@ -183,6 +176,11 @@ class ChickenAudioBrain(sb.core.Brain):
         # Set up evaluation-only statistics trackers
         if stage != sb.Stage.TRAIN:
             self.error_metrics = self.hparams.error_stats()
+        
+        # Store predictions and labels for AUROC calculation
+        if stage == sb.Stage.TEST:
+            self.test_preds = []
+            self.test_labels = []
 
     def on_stage_end(self, stage, stage_loss, epoch=None):
         """Gets called at the end of an epoch."""
@@ -228,9 +226,7 @@ class ChickenAudioBrain(sb.core.Brain):
                 valid_stats=valid_stats,
             )
             # Save the current checkpoint and delete previous checkpoints,
-            self.checkpointer.save_and_keep_only(
-                meta=valid_stats, min_keys=["error"]
-            )
+            self.checkpointer.save_and_keep_only(meta=valid_stats, min_keys=["error"])
 
         # We also write statistics about test data to stdout and to the log file
         if stage == sb.Stage.TEST:
@@ -242,14 +238,26 @@ class ChickenAudioBrain(sb.core.Brain):
                 "{:}: {:.3f}".format(class_id, class_acc)
                 for class_id, class_acc in enumerate(per_class_acc_arr)
             )
+            
+            # Compute AUROC
+            all_preds = torch.cat(self.test_preds, dim=0).numpy()
+            all_labels = torch.cat(self.test_labels, dim=0).numpy().squeeze()
+            
+            # For binary classification, use probability of positive class
+            if self.hparams.out_n_neurons == 2:
+                auroc = roc_auc_score(all_labels, all_preds[:, 1])
+            else:
+                # Multi-class: use one-vs-rest
+                auroc = roc_auc_score(
+                    all_labels, all_preds, multi_class="ovr", average="macro"
+                )
+            test_stats["auroc"] = auroc
 
             self.hparams.train_logger.log_stats(
                 {
                     "Epoch loaded": self.hparams.epoch_counter.current,
                     "\n Per Class Accuracy": per_class_acc_arr_str,
-                    "\n Confusion Matrix": "\n{:}\n".format(
-                        self.test_confusion_matrix
-                    ),
+                    "\n Confusion Matrix": "\n{:}\n".format(self.test_confusion_matrix),
                 },
                 test_stats=test_stats,
             )

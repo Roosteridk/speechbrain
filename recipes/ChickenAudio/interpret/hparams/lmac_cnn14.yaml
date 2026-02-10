@@ -10,8 +10,10 @@ seed: 1234
 __set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
 
 # Set up folders for reading from and writing to
+# Set up folders for reading from and writing to
 data_folder: !PLACEHOLDER  # e.g., /path/to/Chicken_Audio_Dataset_Denoised
 audio_data_folder: !ref <data_folder>
+dataset_name: !PLACEHOLDER
 
 single_sample: null
 
@@ -31,7 +33,8 @@ guidelosstype: binary
 crosscortype: 'dotp'
 
 experiment_name: LMAC_cnn14
-output_folder: !ref ./results/<experiment_name>/<seed>
+explainer_name: LMAC-TD
+output_folder: !ref ./results/<experiment_name>/<dataset_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -53,7 +56,7 @@ skip_manifest_creation: False
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 200
+number_of_epochs: 30
 batch_size: 16
 lr: 0.0002
 sample_rate: 16000
@@ -123,19 +126,16 @@ load_pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
 
 use_pretrained: True
 
-# Pretrained classifier paths (from classification training)
-classifier_save_folder: !ref <data_folder>/../classification/results/cnn14-chicken-audio/1234/save
-embedding_model_path: !ref <classifier_save_folder>/CKPT+2026-01-18+16-58-45+00/embedding_model.ckpt
-classifier_model_path: !ref <classifier_save_folder>/CKPT+2026-01-18+16-58-45+00/classifier.ckpt
+pretrained_path: !PLACEHOLDER
 
-pretrained_chicken_audio: !new:speechbrain.utils.parameter_transfer.Pretrainer
+pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
     collect_in: !ref <save_folder>
     loadables:
         embedding_model: !ref <embedding_model>
         classifier: !ref <classifier>
     paths:
-        embedding_model: !ref <embedding_model_path>
-        classifier: !ref <classifier_model_path>
+        embedding_model: !ref <pretrained_path>/embedding_model.ckpt
+        classifier: !ref <pretrained_path>/classifier.ckpt
 
 # pre-processing
 n_fft: 1024

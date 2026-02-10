@@ -6,20 +6,21 @@
 # #################################
 
 # Seed needs to be set at top of yaml, before objects with parameters are made
+
+# Experiment params
 seed: 1234
-__set_seed: !apply:speechbrain.utils.seed_everything [!ref <seed>]
-
-# Set up folders for reading from and writing to
-data_folder: !PLACEHOLDER  # e.g., /path/to/Chicken_Audio_Dataset_Denoised
+__set_seed: !apply:torch.manual_seed [!ref <seed>]
+data_folder: !PLACEHOLDER # e.g. ../Chicken_Audio_Dataset_Denoised
 audio_data_folder: !ref <data_folder>
+dataset_name: !PLACEHOLDER
 
-single_sample: null
-
-int_method: "l2i"
-overlap_type: "mixtures"
+single_sample: False
+int_method: 1 # 0: integrated gradients, 1: L2I
+overlap_type: "gaussian"
 
 experiment_name: L2I_cnn14
-output_folder: !ref ./results/<experiment_name>/<seed>
+explainer_name: L2I
+output_folder: !ref ./results/<experiment_name>/<dataset_name>/<seed>
 save_folder: !ref <output_folder>/save
 train_log: !ref <output_folder>/train_log.txt
 
@@ -37,11 +38,12 @@ valid_annotation: !ref <data_folder>/manifest/valid.json
 test_annotation: !ref <data_folder>/manifest/test.json
 
 skip_manifest_creation: False
+audio_suffix: "__clean__hpss.wav"  # Use ".wav" for SwineCough dataset
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 200
+number_of_epochs: 30
 batch_size: 16
 lr: 0.0002
 sample_rate: 16000
@@ -93,7 +95,18 @@ classifier: !new:torch.nn.Linear
     in_features: 2048
     out_features: !ref <out_n_neurons>
 
-use_pretrained: False
+use_pretrained: True
+
+pretrained_path: !PLACEHOLDER
+
+pretrained: !new:speechbrain.utils.parameter_transfer.Pretrainer
+    collect_in: !ref <save_folder>
+    loadables:
+        embedding_model: !ref <embedding_model>
+        classifier: !ref <classifier>
+    paths:
+        embedding_model: !ref <pretrained_path>/embedding_model.ckpt
+        classifier: !ref <pretrained_path>/classifier.ckpt
 
 # pre-processing
 n_fft: 1024
@@ -123,6 +136,7 @@ compute_istft: !new:speechbrain.processing.features.ISTFT
 # Interpretation hyperparams
 K: 100
 N_FREQ: 513
+NMF_T: 431
 relevance_th: 0.1
 alpha: 1.0
 beta: 0.01
@@ -133,13 +147,14 @@ nmf_decoder: !new:speechbrain.lobes.models.L2I.NMFDecoderAudio
     n_comp: !ref <K>
     n_freq: !ref <N_FREQ>
 
-psi_model: !new:speechbrain.lobes.models.L2I.Psi
+psi_model: !new:speechbrain.lobes.models.L2I.CNN14PSI_stft_2d
     dim: 2048
     K: !ref <K>
 
 theta_model: !new:speechbrain.lobes.models.L2I.Theta
-    n_classes: !ref <out_n_neurons>
-    K: !ref <K>
+    num_classes: !ref <out_n_neurons>
+    n_comp: !ref <K>
+    T: !ref <NMF_T>
 
 modules:
     compute_stft: !ref <compute_stft>

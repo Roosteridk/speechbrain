@@ -25,7 +25,7 @@ sample_rate: 16000
 signal_length_s: 5
 
 # Tensorboard logs
-use_tensorboard: False
+use_tensorboard: True
 tensorboard_logs_folder: !ref <output_folder>/tb_logs/
 
 # Path where data manifest files will be stored
@@ -35,10 +35,14 @@ test_annotation: !ref <data_folder>/manifest/test.json
 
 skip_manifest_creation: False
 
+# Suffix to filter audio files - change based on your dataset
+# e.g., "__clean__hpss.wav" for cleaned files, "_22k.wav" for SmartEars dataset
+audio_suffix: ".wav"
+
 ckpt_interval_minutes: 15 # save checkpoint every N min
 
 # Training parameters
-number_of_epochs: 200
+number_of_epochs: 50
 batch_size: 32
 lr: 0.0002
 base_lr: 0.00000001

@@ -9,6 +9,7 @@ For more details, please refer to the README file.
 Authors
     * Adapted from ESC50 recipe by Francesco Paissan and Cem Subakan
 """
+
 import os
 import sys
 
@@ -63,9 +64,7 @@ class LMAC(InterpreterBrain):
                 groups=spectrogram.shape[0],
             )
 
-            ncc = (
-                tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)
-            ).squeeze()
+            ncc = (tmp / torch.sqrt(normalization1 * normalization2 + 1e-8)).squeeze()
 
             return ncc
         elif self.hparams.crosscortype == "dotp":
@@ -120,8 +119,7 @@ class LMAC(InterpreterBrain):
         if stage == sb.Stage.VALID:
             # save some samples
             if (
-                self.hparams.epoch_counter.current
-                % self.hparams.interpret_period
+                self.hparams.epoch_counter.current % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
                 self.viz_ints(X_stft, X_stft_logpower, batch, wavs)
 
@@ -197,21 +195,16 @@ class LMAC(InterpreterBrain):
 
             if self.hparams.guidelosstype == "binary":
                 rec_loss = (
-                    F.binary_cross_entropy(
-                        xhat, binarized_oracle, reduce=False
-                    ).mean((-1, -2))
+                    F.binary_cross_entropy(xhat, binarized_oracle, reduce=False).mean(
+                        (-1, -2)
+                    )
                     * self.hparams.g_w
                     * crosscor_mask
                 ).mean()
             else:
                 temp = (
                     (
-                        (
-                            xhat
-                            * X_stft_logpower[
-                                :, : X_stft_logpower_clean.shape[1], :
-                            ]
-                        )
+                        (xhat * X_stft_logpower[:, : X_stft_logpower_clean.shape[1], :])
                         - X_stft_logpower_clean
                     )
                     .pow(2)
@@ -237,9 +230,7 @@ class LMAC(InterpreterBrain):
             * torch.logical_not(crosscor_mask)
         ).sum()
         r_m += (
-            tv_loss(xhat)
-            * self.hparams.reg_w_tv
-            * torch.logical_not(crosscor_mask)
+            tv_loss(xhat) * self.hparams.reg_w_tv * torch.logical_not(crosscor_mask)
         ).sum()
 
         mask_in_preds = mask_in_preds.softmax(1)
@@ -289,9 +280,49 @@ class LMAC(InterpreterBrain):
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+
+    # Infer dataset_name from data_folder argument if it's not provided
+    if "--dataset_name" not in sys.argv and "dataset_name:" not in overrides:
+        data_folder_arg = None
+        for i, arg in enumerate(sys.argv):
+            if arg.startswith("--data_folder"):
+                if "=" in arg:
+                    data_folder_arg = arg.split("=")[1]
+                elif i + 1 < len(sys.argv):
+                    data_folder_arg = sys.argv[i + 1]
+                break
+        
+        if data_folder_arg:
+            norm_path = os.path.normpath(data_folder_arg)
+            dataset_name = os.path.basename(norm_path)
+            if dataset_name:
+                print(f"Inferred dataset_name: {dataset_name}")
+                overrides += f"\ndataset_name: {dataset_name}"
+
+                # Infer pretrained_path from dataset_name if not provided
+                if "--pretrained_path" not in sys.argv and "pretrained_path:" not in overrides:
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    save_dir = os.path.join(
+                        script_dir, "..", "classification", "results",
+                        "multi_seed", dataset_name, "seed_1", "save"
+                    )
+                    save_dir = os.path.normpath(save_dir)
+                    if os.path.isdir(save_dir):
+                        # Find the latest CKPT folder
+                        ckpt_folders = sorted([
+                            d for d in os.listdir(save_dir)
+                            if d.startswith("CKPT") and os.path.isdir(os.path.join(save_dir, d))
+                        ])
+                        if ckpt_folders:
+                            pretrained_path = os.path.join(save_dir, ckpt_folders[-1])
+                            print(f"Inferred pretrained_path: {pretrained_path}")
+                            overrides += f"\npretrained_path: {pretrained_path}"
+                        else:
+                            print(f"Warning: No CKPT folders found in {save_dir}")
+                    else:
+                        print(f"Warning: Could not find pretrained model at {save_dir}")
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -354,9 +385,7 @@ if __name__ == "__main__":
 
     if hparams["finetuning"]:
         if hparams["pretrained_interpreter"] is None:
-            raise AssertionError(
-                "You should specify pretrained model for finetuning."
-            )
+            raise AssertionError("You should specify pretrained model for finetuning.")
 
     Interpreter_brain = LMAC(
         modules=hparams["modules"],
@@ -371,10 +400,10 @@ if __name__ == "__main__":
         run_on_main(hparams["load_pretrained"].collect_files)
         hparams["load_pretrained"].load_collected()
 
-    if "pretrained_chicken_audio" in hparams and hparams["use_pretrained"]:
+    if "pretrained" in hparams and hparams["use_pretrained"]:
         print("Loading model...")
-        run_on_main(hparams["pretrained_chicken_audio"].collect_files)
-        hparams["pretrained_chicken_audio"].load_collected()
+        run_on_main(hparams["pretrained"].collect_files)
+        hparams["pretrained"].load_collected()
 
     hparams["embedding_model"].to(Interpreter_brain.device)
     hparams["classifier"].to(Interpreter_brain.device)
@@ -399,3 +428,6 @@ if __name__ == "__main__":
         progressbar=True,
         test_loader_kwargs=hparams["dataloader_options"],
     )
+
+    # Save bioacoustics CSV with all interpretation records
+    Interpreter_brain.save_bioacoustics_csv()

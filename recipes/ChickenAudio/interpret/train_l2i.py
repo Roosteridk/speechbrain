@@ -7,6 +7,7 @@ The command to run this recipe:
 Authors
     * Adapted from ESC50 recipe by Cem Subakan and Francesco Paissan
 """
+
 import os
 import sys
 
@@ -55,9 +56,7 @@ class L2I(InterpreterBrain):
             # get the classifier embeddings
             temp = self.hparams.embedding_model(net_input)
 
-            if isinstance(
-                temp, tuple
-            ):  # if embeddings are not used for interpretation
+            if isinstance(temp, tuple):  # if embeddings are not used for interpretation
                 embeddings, f_I = temp
             else:
                 embeddings, f_I = temp, temp
@@ -162,8 +161,7 @@ class L2I(InterpreterBrain):
         if stage == sb.Stage.VALID:
             # save some samples
             if (
-                self.hparams.epoch_counter.current
-                % self.hparams.interpret_period
+                self.hparams.epoch_counter.current % self.hparams.interpret_period
             ) == 0 and self.hparams.save_interpretations:
                 self.viz_ints(X_stft, net_input, batch, wavs)
 
@@ -195,9 +193,7 @@ class L2I(InterpreterBrain):
         X_stft_logpower = torch.log1p(X_stft_power)
 
         with torch.no_grad():
-            tmp, _, _, _ = self.interpret_computation_steps(
-                wavs
-            )  # returns log1p
+            tmp, _, _, _ = self.interpret_computation_steps(wavs)  # returns log1p
             interpretations = torch.expm1(tmp).transpose(2, 1)
 
             if self.hparams.use_melspectra_log1p:
@@ -214,18 +210,14 @@ class L2I(InterpreterBrain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            maskin_preds = (
-                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
-            )
+            maskin_preds = self.hparams.classifier(embeddings).squeeze(1).softmax(1)
 
             X_stft_logpower = X_stft_logpower[:, : interpretations.shape[-2], :]
             if self.hparams.use_melspectra_log1p:
                 xx_temp = torch.log1p(self.hparams.compute_fbank(X_stft_power))
                 temp = self.hparams.embedding_model(xx_temp - interpretations)
             else:
-                temp = self.hparams.embedding_model(
-                    X_stft_logpower - interpretations
-                )
+                temp = self.hparams.embedding_model(X_stft_logpower - interpretations)
 
             if isinstance(temp, tuple):
                 embeddings, _ = temp
@@ -235,9 +227,7 @@ class L2I(InterpreterBrain):
             if embeddings.ndim == 4:
                 embeddings = embeddings.mean((-1, -2))
 
-            maskout_preds = (
-                self.hparams.classifier(embeddings).squeeze(1).softmax(1)
-            )
+            maskout_preds = self.hparams.classifier(embeddings).squeeze(1).softmax(1)
         self.l2i_fid.append(uttid, theta_out, classid)
         self.inp_fid.append(uttid, maskin_preds, classid)
 
@@ -329,15 +319,54 @@ class L2I(InterpreterBrain):
 
     def pretrained_interpreter(self):
         """This function enables us to use hparams.pretrained_interpreter inside train.py"""
-        print(
-            f"pretrained_interpreter path {self.hparams.pretrained_interpreter}"
-        )
+        print(f"pretrained_interpreter path {self.hparams.pretrained_interpreter}")
 
 
 if __name__ == "__main__":
-
     # CLI:
     hparams_file, run_opts, overrides = sb.parse_arguments(sys.argv[1:])
+
+    # Infer dataset_name from data_folder argument if it's not provided
+    # This ensures separate output folders for different datasets
+    if "--dataset_name" not in sys.argv and "dataset_name:" not in overrides:
+        data_folder_arg = None
+        for i, arg in enumerate(sys.argv):
+            if arg.startswith("--data_folder"):
+                if "=" in arg:
+                    data_folder_arg = arg.split("=")[1]
+                elif i + 1 < len(sys.argv):
+                    data_folder_arg = sys.argv[i + 1]
+                break
+        
+        if data_folder_arg:
+            norm_path = os.path.normpath(data_folder_arg)
+            dataset_name = os.path.basename(norm_path)
+            if dataset_name:
+                print(f"Inferred dataset_name: {dataset_name}")
+                overrides += f"\ndataset_name: {dataset_name}"
+
+                # Infer pretrained_path from dataset_name if not provided
+                if "--pretrained_path" not in sys.argv and "pretrained_path:" not in overrides:
+                    script_dir = os.path.dirname(os.path.abspath(__file__))
+                    save_dir = os.path.join(
+                        script_dir, "..", "classification", "results",
+                        "multi_seed", dataset_name, "seed_1", "save"
+                    )
+                    save_dir = os.path.normpath(save_dir)
+                    if os.path.isdir(save_dir):
+                        # Find the latest CKPT folder
+                        ckpt_folders = sorted([
+                            d for d in os.listdir(save_dir)
+                            if d.startswith("CKPT") and os.path.isdir(os.path.join(save_dir, d))
+                        ])
+                        if ckpt_folders:
+                            pretrained_path = os.path.join(save_dir, ckpt_folders[-1])
+                            print(f"Inferred pretrained_path: {pretrained_path}")
+                            overrides += f"\npretrained_path: {pretrained_path}"
+                        else:
+                            print(f"Warning: No CKPT folders found in {save_dir}")
+                    else:
+                        print(f"Warning: Could not find pretrained model at {save_dir}")
 
     # Initialize ddp (useful only for multi-GPU DDP training)
     sb.utils.distributed.ddp_init_group(run_opts)
@@ -401,9 +430,9 @@ if __name__ == "__main__":
         checkpointer=hparams["checkpointer"],
     )
 
-    if "pretrained_chicken_audio" in hparams and hparams["use_pretrained"]:
-        run_on_main(hparams["pretrained_chicken_audio"].collect_files)
-        hparams["pretrained_chicken_audio"].load_collected()
+    if "pretrained" in hparams and hparams["use_pretrained"]:
+        run_on_main(hparams["pretrained"].collect_files)
+        hparams["pretrained"].load_collected()
 
     # transfer the frozen parts to the model to the device
     hparams["embedding_model"].to(run_opts["device"])
@@ -426,3 +455,6 @@ if __name__ == "__main__":
         progressbar=True,
         test_loader_kwargs=hparams["dataloader_options"],
     )
+
+    # Save bioacoustics CSV with all interpretation records
+    Interpreter_brain.save_bioacoustics_csv()

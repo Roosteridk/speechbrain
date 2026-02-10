@@ -2,7 +2,6 @@ import torch
 
 
 def test_rel_pos_MHA(device):
-
     from speechbrain.nnet.attention import RelPosMHAXL
 
     bsz = 2
@@ -16,12 +15,10 @@ def test_rel_pos_MHA(device):
         for ql in q_len:
             for b in bias:
                 for h in head_dim:
-                    relpos = RelPosMHAXL(
-                        emb_dim, num_heads=2, vbias=b, vdim=h
-                    ).to(device)
+                    relpos = RelPosMHAXL(emb_dim, num_heads=2, vbias=b, vdim=h).to(
+                        device
+                    )
                     q = torch.rand((bsz, ql, emb_dim), device=device)
                     k = torch.rand((bsz, kl, emb_dim), device=device)
-                    pos_embs = torch.rand(
-                        (1, 2 * kl - 1, emb_dim), device=device
-                    )
+                    pos_embs = torch.rand((1, 2 * kl - 1, emb_dim), device=device)
                     relpos(q, k, k, pos_embs=pos_embs)

@@ -45,9 +45,7 @@ class InterpreterBrain(sb.core.Brain):
     def preprocess(self, wavs):
         """Pre-process wavs."""
         X_stft = self.modules.compute_stft(wavs)
-        X_stft_power = sb.processing.features.spectral_magnitude(
-            X_stft, power=0.5
-        )
+        X_stft_power = sb.processing.features.spectral_magnitude(X_stft, power=0.5)
 
         X_mel, X_mel_log1p = [None] * 2
         if self.hparams.use_melspectra_log1p:
@@ -86,9 +84,7 @@ class InterpreterBrain(sb.core.Brain):
                     self.hparams.embedding_model.config.image_size
                     // self.hparams.embedding_model.config.patch_size
                 )
-                hcat = hcat[..., 1:].reshape(
-                    len(hcat), -1, num_patches, num_patches
-                )
+                hcat = hcat[..., 1:].reshape(len(hcat), -1, num_patches, num_patches)
             else:
                 raise NotImplementedError
         else:
@@ -111,8 +107,8 @@ class InterpreterBrain(sb.core.Brain):
         return {}
 
     def viz_ints(self, X_stft, X_stft_logpower, batch, wavs):
-        """The helper function to create debugging images"""
-        X_int, _, X_stft_phase, _ = self.interpret_computation_steps(wavs)
+        """Save interpretations organized by class in explainer output folder."""
+        X_int, ret_mask, X_stft_phase, _ = self.interpret_computation_steps(wavs)
 
         X_int = torch.expm1(X_int)
 
@@ -123,58 +119,98 @@ class InterpreterBrain(sb.core.Brain):
 
         xhat_tm = self.invert_stft_with_phase(X_int, X_stft_phase)
 
-        plt.figure(figsize=(10, 5), dpi=100)
+        import numpy as np
 
-        plt.subplot(121)
-        plt.imshow(X_stft_logpower[0].squeeze().cpu().t(), origin="lower")
-        plt.title("input")
-        plt.colorbar()
+        # Get explainer output folder
+        explainer_output_folder = self._get_explainer_output_folder()
 
-        plt.subplot(122)
-        plt.imshow(X_int[0].squeeze().cpu().t(), origin="lower")
-        plt.colorbar()
-        plt.title("interpretation")
+        # Loop over batch to save all interpretations
+        for i, uttid in enumerate(batch.id):
+            # Get class label for this sample
+            class_label = self._get_class_label(batch, i)
+            
+            # Create output folder for this class
+            out_folder = os.path.join(explainer_output_folder, class_label)
+            os.makedirs(out_folder, exist_ok=True)
 
-        out_folder = os.path.join(
-            self.hparams.output_folder,
-            "interpretations/" f"{batch.id[0]}",
+            # Save Saliency Map (Mask) as NPY
+            saliency = ret_mask[i].squeeze().cpu().numpy()
+            np.save(os.path.join(out_folder, f"{uttid}_saliency.npy"), saliency)
+
+            # Save Saliency Map as PNG
+            plt.figure(figsize=(10, 4), dpi=100)
+            plt.imshow(saliency.T, origin="lower", aspect="auto", cmap="viridis")
+            plt.colorbar(label="Saliency")
+            plt.xlabel("Time")
+            plt.ylabel("Frequency")
+            plt.title(f"Saliency Map: {uttid}")
+            plt.tight_layout()
+            plt.savefig(os.path.join(out_folder, f"{uttid}_saliency.png"), format="png")
+            plt.close()
+
+            # Save Listenable Audio
+            xhat_audio = xhat_tm[i].data.cpu()
+            if xhat_audio.ndim == 1:
+                xhat_audio = xhat_audio.unsqueeze(0)
+            
+            torchaudio.save(
+                os.path.join(out_folder, f"{uttid}_listenable.wav"),
+                xhat_audio,
+                self.hparams.sample_rate,
+            )
+
+            # Track for bioacoustics CSV
+            if not hasattr(self, "_bioacoustics_records"):
+                self._bioacoustics_records = []
+            self._bioacoustics_records.append({
+                "uttid": uttid,
+                "class_label": class_label,
+                "saliency_npy": f"{class_label}/{uttid}_saliency.npy",
+                "saliency_png": f"{class_label}/{uttid}_saliency.png",
+                "listenable_wav": f"{class_label}/{uttid}_listenable.wav",
+            })
+
+    def _get_explainer_output_folder(self):
+        """Compute explainer output folder at data folder parent level."""
+        if hasattr(self, "_explainer_output_folder_cached"):
+            return self._explainer_output_folder_cached
+        
+        data_folder = self.hparams.data_folder
+        explainer_name = getattr(self.hparams, "explainer_name", "Explainer")
+        dataset_name = getattr(self.hparams, "dataset_name", os.path.basename(data_folder))
+        
+        # Output folder is at same level as data folder
+        parent_folder = os.path.dirname(os.path.normpath(data_folder))
+        self._explainer_output_folder_cached = os.path.join(
+            parent_folder, explainer_name, dataset_name
         )
-        os.makedirs(
-            out_folder,
-            exist_ok=True,
-        )
+        return self._explainer_output_folder_cached
 
-        plt.savefig(
-            os.path.join(out_folder, "spectra.png"),
-            format="png",
-        )
-        plt.close()
+    def _get_class_label(self, batch, idx):
+        """Get class label string for a sample in the batch."""
+        if hasattr(self.hparams, "label_encoder"):
+            classid, _ = batch.class_string_encoded
+            class_idx = classid[idx].item()
+            return self.hparams.label_encoder.decode_ndim(class_idx)
+        return "Unknown"
 
-        # Ensure audio is mono (1, N) - take first sample from batch
-        xhat_audio = xhat_tm[0].data.cpu()
-        if xhat_audio.ndim == 1:
-            xhat_audio = xhat_audio.unsqueeze(0)
-        elif xhat_audio.ndim > 1:
-            xhat_audio = xhat_audio.reshape(1, -1)
-
-        torchaudio.save(
-            os.path.join(out_folder, "interpretation.wav"),
-            xhat_audio,
-            self.hparams.sample_rate,
-        )
-
-        # Ensure original audio is mono (1, N) - take first sample from batch
-        orig_audio = wavs[0].data.cpu()
-        if orig_audio.ndim == 1:
-            orig_audio = orig_audio.unsqueeze(0)
-        elif orig_audio.ndim > 1:
-            orig_audio = orig_audio.reshape(1, -1)
-
-        torchaudio.save(
-            os.path.join(out_folder, "original.wav"),
-            orig_audio,
-            self.hparams.sample_rate,
-        )
+    def save_bioacoustics_csv(self):
+        """Save bioacoustics CSV after test evaluation."""
+        if not hasattr(self, "_bioacoustics_records") or not self._bioacoustics_records:
+            return
+        
+        import csv
+        
+        explainer_output_folder = self._get_explainer_output_folder()
+        os.makedirs(explainer_output_folder, exist_ok=True)
+        csv_path = os.path.join(explainer_output_folder, "bioacoustics.csv")
+        
+        with open(csv_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["uttid", "class_label", "saliency_npy", "saliency_png", "listenable_wav"])
+            writer.writeheader()
+            writer.writerows(self._bioacoustics_records)
+        
+        print(f"Saved bioacoustics CSV: {csv_path}")
 
     def compute_forward(self, batch, stage):
         """Interpreter training forward step."""
@@ -203,16 +239,14 @@ class InterpreterBrain(sb.core.Brain):
             pred_cl = predictions.argmax(dim=1, keepdim=True)
 
             # get the corresponding output probabilities
-            predictions_selected = torch.gather(
-                predictions, dim=1, index=pred_cl
-            )
+            predictions_selected = torch.gather(predictions, dim=1, index=pred_cl)
             predictions_masked_selected = torch.gather(
                 predictions_masked, dim=1, index=pred_cl
             )
 
-            faithfulness = (
-                predictions_selected - predictions_masked_selected
-            ).squeeze(dim=1)
+            faithfulness = (predictions_selected - predictions_masked_selected).squeeze(
+                dim=1
+            )
 
             return faithfulness
 
@@ -267,9 +301,7 @@ class InterpreterBrain(sb.core.Brain):
         @torch.no_grad()
         def compute_sparseness(wavs, X, y):
             """Computes the SPS metric used in the L-MAC paper."""
-            self.sparseness = quantus.Sparseness(
-                return_aggregate=True, abs=True
-            )
+            self.sparseness = quantus.Sparseness(return_aggregate=True, abs=True)
             device = X.device
             attr = (
                 self.interpret_computation_steps(wavs)[1]
@@ -302,9 +334,7 @@ class InterpreterBrain(sb.core.Brain):
         @torch.no_grad()
         def compute_complexity(wavs, X, y):
             """Computes the COMP metric used in L-MAC paper"""
-            self.complexity = quantus.Complexity(
-                return_aggregate=True, abs=True
-            )
+            self.complexity = quantus.Complexity(return_aggregate=True, abs=True)
             device = X.device
             attr = (
                 self.interpret_computation_steps(wavs)[1]
@@ -401,9 +431,7 @@ class InterpreterBrain(sb.core.Brain):
                 "AI": torch.Tensor(self.AI.scores).mean(),
                 "AD": torch.Tensor(self.AD.scores).mean(),
                 "AG": torch.Tensor(self.AG.scores).mean(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean(),
+                "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
             }
             valid_stats.update(extra_m)
             valid_stats.update(quantus_metrics)
@@ -416,9 +444,7 @@ class InterpreterBrain(sb.core.Brain):
             )
 
             # Save the current checkpoint and delete previous checkpoints
-            self.checkpointer.save_and_keep_only(
-                meta=valid_stats, min_keys=["loss"]
-            )
+            self.checkpointer.save_and_keep_only(meta=valid_stats, min_keys=["loss"])
 
             # Update early stopping metric
             if hasattr(self.hparams.epoch_counter, "update_metric"):
@@ -433,9 +459,7 @@ class InterpreterBrain(sb.core.Brain):
                 "AI": torch.Tensor(self.AI.scores).mean(),
                 "AD": torch.Tensor(self.AD.scores).mean(),
                 "AG": torch.Tensor(self.AG.scores).mean(),
-                "faithfulness_mean": torch.Tensor(
-                    self.faithfulness.scores
-                ).mean(),
+                "faithfulness_mean": torch.Tensor(self.faithfulness.scores).mean(),
             }
             test_stats.update(extra_m)
             test_stats.update(quantus_metrics)
