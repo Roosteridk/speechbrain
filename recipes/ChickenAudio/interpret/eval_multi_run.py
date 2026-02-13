@@ -161,12 +161,24 @@ def run_single_evaluation(
     # Extract metrics
     fidelity = torch.Tensor(brain.inp_fid.scores).mean().item()
     faithfulness = torch.Tensor(brain.faithfulness.scores).mean().item()
+    ai = torch.Tensor(brain.AI.scores).mean().item()
+    ad = torch.Tensor(brain.AD.scores).mean().item()
+    ag = torch.Tensor(brain.AG.scores).mean().item()
+    sps = torch.Tensor(brain.sps.scores).mean().item()
+    comp_tensor = torch.Tensor(brain.comp.scores)
+    comp_tensor = comp_tensor[~torch.isnan(comp_tensor)]
+    comp = comp_tensor.mean().item() if len(comp_tensor) > 0 else float("nan")
     
     return {
         "run": run_idx,
         "seed": seed,
         "input_fidelity": fidelity,
         "faithfulness_mean": faithfulness,
+        "AI": ai,
+        "AD": ad,
+        "AG": ag,
+        "SPS": sps,
+        "COMP": comp,
     }
 
 
@@ -202,6 +214,8 @@ def main():
             results.append(result)
             print(f"  Fidelity: {result['input_fidelity']:.4f}")
             print(f"  Faithfulness: {result['faithfulness_mean']:.4f}")
+            print(f"  AI: {result['AI']:.4f}  AD: {result['AD']:.4f}  AG: {result['AG']:.4f}")
+            print(f"  SPS: {result['SPS']:.4f}  COMP: {result['COMP']:.4f}")
         except Exception as e:
             print(f"  ERROR: {e}")
             results.append({
@@ -209,38 +223,47 @@ def main():
                 "seed": 1000 + run_idx,
                 "input_fidelity": float("nan"),
                 "faithfulness_mean": float("nan"),
+                "AI": float("nan"),
+                "AD": float("nan"),
+                "AG": float("nan"),
+                "SPS": float("nan"),
+                "COMP": float("nan"),
             })
     
     # Compute summary statistics
-    fidelities = np.array([r["input_fidelity"] for r in results if not np.isnan(r["input_fidelity"])])
-    faithfulnesses = np.array([r["faithfulness_mean"] for r in results if not np.isnan(r["faithfulness_mean"])])
+    metric_keys = ["input_fidelity", "faithfulness_mean", "AI", "AD", "AG", "SPS", "COMP"]
+    metric_arrays = {}
+    for key in metric_keys:
+        vals = np.array([r[key] for r in results if not np.isnan(r[key])])
+        metric_arrays[key] = vals
     
     print(f"\n{'='*60}")
     print(f"SUMMARY - {explainer_type.upper()} on {dataset_name}")
     print(f"{'='*60}")
-    print(f"Successful runs: {len(fidelities)}/{args.num_runs}")
+    print(f"Successful runs: {len(metric_arrays['input_fidelity'])}/{args.num_runs}")
     
-    if len(fidelities) > 0:
-        print(f"\nInput Fidelity:    {fidelities.mean():.4f} ± {fidelities.std():.4f}")
-        print(f"  Range: [{fidelities.min():.4f}, {fidelities.max():.4f}]")
-    
-    if len(faithfulnesses) > 0:
-        print(f"\nFaithfulness Mean: {faithfulnesses.mean():.4f} ± {faithfulnesses.std():.4f}")
-        print(f"  Range: [{faithfulnesses.min():.4f}, {faithfulnesses.max():.4f}]")
+    for key in metric_keys:
+        vals = metric_arrays[key]
+        if len(vals) > 0:
+            print(f"\n{key:>20s}: {vals.mean():.4f} ± {vals.std():.4f}")
+            print(f"{'':>20s}  Range: [{vals.min():.4f}, {vals.max():.4f}]")
     
     # Save CSV
+    csv_fieldnames = ["run", "seed"] + metric_keys
     output_csv = args.output_csv or f"./results/eval_multi_run_{explainer_type}_{dataset_name}.csv"
     os.makedirs(os.path.dirname(output_csv) or ".", exist_ok=True)
     
     with open(output_csv, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=["run", "seed", "input_fidelity", "faithfulness_mean"])
+        writer = csv.DictWriter(f, fieldnames=csv_fieldnames)
         writer.writeheader()
         writer.writerows(results)
         
         # Write summary row
         f.write(f"\n# Summary\n")
-        f.write(f"# Fidelity: {fidelities.mean():.4f} ± {fidelities.std():.4f}\n")
-        f.write(f"# Faithfulness: {faithfulnesses.mean():.4f} ± {faithfulnesses.std():.4f}\n")
+        for key in metric_keys:
+            vals = metric_arrays[key]
+            if len(vals) > 0:
+                f.write(f"# {key}: {vals.mean():.4f} ± {vals.std():.4f}\n")
     
     print(f"\nResults saved to: {output_csv}")
 
