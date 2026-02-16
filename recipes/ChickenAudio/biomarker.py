@@ -7,9 +7,9 @@ import numpy as np
 import librosa
 
 
-ROOT = ""  # listenable explanations root directory. filename should be of form: <any prefix here>_listenable.wav
+ROOT = "/home/arda/Sindhuja_Datasets/LMAC-TD/Chicken_Audio_Dataset_Denoised"  # listenable explanations root directory. filename should be of form: <any prefix here>_listenable.wav
 
-MODEL_NAME = ""  # coughlime, l2i, etc
+MODEL_NAME = "lmac-td"  # coughlime, l2i, etc
 
 HEALTHY_DIR = os.path.join(ROOT, "Healthy")
 
