@@ -440,12 +440,17 @@ if __name__ == "__main__":
     hparams["nmf_decoder"].to(run_opts["device"])
     hparams["embedding_model"].eval()
 
-    Interpreter_brain.fit(
-        epoch_counter=Interpreter_brain.hparams.epoch_counter,
-        train_set=datasets["train"],
-        valid_set=datasets["valid"],
-        train_loader_kwargs=hparams["dataloader_options"],
-        valid_loader_kwargs=hparams["dataloader_options"],
+    if not hparams["test_only"]:
+        Interpreter_brain.fit(
+            epoch_counter=Interpreter_brain.hparams.epoch_counter,
+            train_set=datasets["train"],
+            valid_set=datasets["valid"],
+            train_loader_kwargs=hparams["dataloader_options"],
+            valid_loader_kwargs=hparams["dataloader_options"],
+        )
+
+    Interpreter_brain.checkpointer.recover_if_possible(
+        min_key="loss",
     )
 
     # Load the best checkpoint for evaluation
