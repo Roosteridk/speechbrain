@@ -25,55 +25,6 @@ from speechbrain.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def detect_audio_suffix(data_folder):
-    """
-    Automatically detect the audio suffix/pattern from a data folder.
-    
-    Scans audio files in Healthy/Unhealthy subfolders and determines
-    the most common suffix pattern.
-    
-    Arguments
-    ---------
-    data_folder : str
-        Path to the dataset folder containing Healthy/Unhealthy subdirs.
-    
-    Returns
-    -------
-    str
-        The detected audio suffix (e.g., ".wav" or "__clean__hpss.wav")
-    """
-    from collections import Counter
-    
-    classes = ["Healthy", "Unhealthy"]
-    all_files = []
-    
-    for class_name in classes:
-        class_folder = os.path.join(data_folder, class_name)
-        if os.path.exists(class_folder):
-            for filename in os.listdir(class_folder):
-                if filename.endswith(".wav"):
-                    all_files.append(filename)
-    
-    if not all_files:
-        logger.warning("No .wav files found for suffix detection, defaulting to '.wav'")
-        return ".wav"
-    
-    # Check for common patterns
-    suffix_patterns = []
-    for f in all_files:
-        if "__clean__hpss.wav" in f:
-            suffix_patterns.append("__clean__hpss.wav")
-        elif "_22k.wav" in f:
-            suffix_patterns.append("_22k.wav")
-        else:
-            suffix_patterns.append(".wav")
-    
-    # Return most common pattern
-    counter = Counter(suffix_patterns)
-    detected_suffix = counter.most_common(1)[0][0]
-    logger.info(f"Auto-detected audio_suffix: '{detected_suffix}'")
-    return detected_suffix
-
 
 def prepare_chicken_audio(
     data_folder,
@@ -85,7 +36,6 @@ def prepare_chicken_audio(
     test_ratio=0.15,
     seed=1234,
     skip_manifest_creation=False,
-    audio_suffix=None,  # Auto-detect if None
 ):
     """
     Prepares the json files for the ChickenAudio dataset.
@@ -111,19 +61,18 @@ def prepare_chicken_audio(
         Random seed for reproducible splits.
     skip_manifest_creation : bool
         Whether to skip over the manifest creation step.
-    audio_suffix : str
-        Suffix to filter audio files (default "__clean__hpss.wav").
+
 
     Returns
     -------
     None
     """
+    # Normalize data_folder to prevent trailing slash/whitespace issues
+    data_folder = os.path.normpath(data_folder.strip())
+
     if skip_manifest_creation:
         return
 
-    # Auto-detect audio suffix if not specified
-    if audio_suffix is None:
-        audio_suffix = detect_audio_suffix(data_folder)
 
     # Validate ratios
     assert abs(train_ratio + valid_ratio + test_ratio - 1.0) < 1e-6, (
@@ -145,13 +94,7 @@ def prepare_chicken_audio(
             continue
 
         for filename in os.listdir(class_folder):
-            # Match all wav files, or filter by specific suffix if not just ".wav"
-            if audio_suffix == ".wav":
-                should_include = filename.endswith(".wav")
-            else:
-                should_include = filename.endswith(audio_suffix)
-            
-            if should_include:
+            if filename.endswith(".wav"):
                 all_samples.append(
                     {
                         "filename": filename,

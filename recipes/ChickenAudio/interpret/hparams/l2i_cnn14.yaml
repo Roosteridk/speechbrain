@@ -38,7 +38,7 @@ valid_annotation: !ref <data_folder>/manifest/valid.json
 test_annotation: !ref <data_folder>/manifest/test.json
 
 skip_manifest_creation: False
-audio_suffix: "__clean__hpss.wav"  # Use ".wav" for SwineCough dataset
+
 
 ckpt_interval_minutes: 15 # save checkpoint every N min
 

@@ -440,7 +440,10 @@ if __name__ == "__main__":
     hparams["nmf_decoder"].to(run_opts["device"])
     hparams["embedding_model"].eval()
 
-    if not hparams["test_only"]:
+    # Check both run_opts (from SpeechBrain's built-in --test_only flag)
+    # and hparams (from YAML). Use --test_only (without True) on the CLI.
+    test_only = run_opts.get("test_only", False) or hparams.get("test_only", False)
+    if not test_only:
         Interpreter_brain.fit(
             epoch_counter=Interpreter_brain.hparams.epoch_counter,
             train_set=datasets["train"],

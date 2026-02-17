@@ -167,7 +167,6 @@ def train_single_seed(hparams_file: str, data_folder: str, seed: int, base_outpu
             "save_json_valid": hparams["valid_annotation"],
             "save_json_test": hparams["test_annotation"],
             "skip_manifest_creation": hparams.get("skip_manifest_creation", False),
-            "audio_suffix": hparams.get("audio_suffix", "__clean__hpss.wav"),
         },
     )
 
